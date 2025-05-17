@@ -57,14 +57,6 @@ def get_medical_analysis(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     
     prompt = format_medical_prompt(patient_data)
     
-    # Write prompt to file for debugging
-    debug_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'debug')
-    os.makedirs(debug_dir, exist_ok=True)
-    debug_file = os.path.join(debug_dir, 'latest_prompt.txt')
-    with open(debug_file, 'w', encoding='utf-8') as f:
-        f.write(prompt)
-    print(f"Prompt written to {debug_file} for debugging")
-    
     body = json.dumps({
         "prompt": prompt,
         "max_gen_len": 1000,
@@ -74,11 +66,6 @@ def get_medical_analysis(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     accept = 'application/json'
     content_type = 'application/json'
     
-    # debug_body_file = os.path.join(debug_dir, 'latest_body.json')
-    # with open(debug_body_file, 'w', encoding='utf-8') as f:
-    #     json.dump(body, f, indent=2)
-    # print(f"Body written to {debug_body_file} for debugging")
-    
     try:
         response = client.invoke_model(
             modelId='arn:aws:bedrock:us-east-1:597953171030:inference-profile/us.meta.llama3-3-70b-instruct-v1:0',
@@ -86,18 +73,9 @@ def get_medical_analysis(patient_data: Dict[str, Any]) -> Dict[str, Any]:
             accept=accept,
             contentType=content_type,
         )
-        response_body_raw = response.get('body').read()
-        # print(response_body_raw)
-        
-        response_body = json.loads(response_body_raw)
-        # Write response_body to file for debugging
-        debug_response_file = os.path.join(debug_dir, 'latest_response.json')
-        with open(debug_response_file, 'w', encoding='utf-8') as f:
-            json.dump(response_body, f, indent=2)
-        print(f"Response written to {debug_response_file} for debugging")
+        response_body = json.loads(response.get('body').read())
         generation = json.loads(response_body.get('generation', '{}'))
         return generation
     except Exception as e:
-        # print(f"Error in medical analysis: {str(e)}")
         traceback.print_exc()
         return {}

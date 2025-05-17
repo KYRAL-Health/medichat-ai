@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit.components.v1 import html
 from utils.bedrock import get_medical_analysis
 from dotenv import load_dotenv
 import bcrypt
@@ -18,6 +19,8 @@ def initialize_session_state():
         st.session_state.form_submitted = False
     if 'processing' not in st.session_state:
         st.session_state.processing = False
+    if 'error_message' not in st.session_state:
+        st.session_state.error_message = None
 
 def check_password(password):
     stored_hash = os.getenv('APP_PASSWORD_HASH')
@@ -77,27 +80,34 @@ def render_patient_form():
     """)
     
     with st.form("patient_info_form"):
+        if st.session_state.error_message:
+            st.error(st.session_state.error_message)
+            st.session_state.error_message = None
+            
+        st.subheader("Primary Information") 
+        
         col1, col2 = st.columns(2)
+        col3, col4 = st.columns(2)
         
         with col1:
-            st.subheader("Primary Information")
             age = st.number_input("Age", min_value=0, max_value=120, value=None)
             gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=None)
             primary_symptoms = st.text_area("Primary Symptoms", height=100)
             symptom_duration = st.text_input("Symptom Onset and Duration")
+            
+        with col2:
             existing_conditions = st.text_area("Existing Medical Conditions", height=100)
             current_medications = st.text_area("Current Medications", height=100)
             lab_results = st.text_area("Recent Lab Test Results", height=100)
         
-        with col2:
+        with col3:
             # Vital Signs Section
             st.subheader("Vital Signs (Optional)")
             blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)")
             heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=None)
             temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=None)
             
-            st.markdown("---")
-            
+        with col4:
             # Lifestyle Factors Section
             st.subheader("Lifestyle Factors (Optional)")
             smoking = st.selectbox("Smoking Status", ["Non-smoker", "Former smoker", "Current smoker"], index=None)
@@ -115,7 +125,9 @@ def render_patient_form():
         try:
             # Validate required fields
             if not all([age, gender, primary_symptoms, symptom_duration]):
-                st.error("Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)")
+                st.session_state.error_message = "Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)"    
+                st.session_state.processing = False
+                st.rerun()
                 return
 
             # Prepare patient data
@@ -138,8 +150,21 @@ def render_patient_form():
                     "physical_activity": physical_activity
                 }
             }
-
+            
             with st.spinner("Analyzing patient information..."):
+                html("""
+                 <script>
+                        setTimeout(() => {
+                            const spinner = document.getElementById("analysis_spinner");
+                            console.log("Spinner element:", spinner);
+                            if (spinner) {
+                                spinner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 100);
+                    </script>
+                 <div id="analysis_spinner" style="height:0"></div>
+                 """.encode(), height=0)                
+                
                 st.session_state.analysis_results = get_medical_analysis(patient_data)
                 st.session_state.form_submitted = True
                 st.session_state.current_step = "Results"
