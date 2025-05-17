@@ -1,70 +1,78 @@
 import streamlit as st
-import plotly.graph_objects as go
 from utils.bedrock import get_medical_analysis
-import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-def create_confidence_chart(diagnoses):
-    """Create a bar chart for diagnosis confidence scores."""
-    conditions = [d['condition'] for d in diagnoses]
-    confidences = [d['confidence'] * 100 for d in diagnoses]
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=confidences,
-            y=conditions,
-            orientation='h',
-            marker_color='rgb(26, 118, 255)'
-        )
-    ])
-    
-    fig.update_layout(
-        title='Diagnosis Confidence Scores',
-        xaxis_title='Confidence (%)',
-        yaxis_title='Condition',
-        height=400
-    )
-    
-    return fig
+def initialize_session_state():
+    if 'current_step' not in st.session_state:
+        st.session_state.current_step = "Patient Information"
+    if 'analysis_results' not in st.session_state:
+        st.session_state.analysis_results = None
+    if 'form_submitted' not in st.session_state:
+        st.session_state.form_submitted = False
+    if 'processing' not in st.session_state:
+        st.session_state.processing = False
+        
+def disable_submit_button():
+    st.session_state.processing = True
 
-def main():
-    st.set_page_config(
-        page_title="Medical Diagnosis Assistant",
-        page_icon="🏥",
-        layout="wide"
-    )
+def render_sidebar():
+    st.sidebar.title("Steps")
+    steps = ["Patient Information", "Results"]
     
+    for step in steps:
+        if step == "Results" and not st.session_state.form_submitted:
+            # Grey out Results step if form not submitted
+            st.sidebar.markdown(
+                f'<div style="opacity: 0.5; color: gray;">⚪ {step}</div>',
+                unsafe_allow_html=True
+            )
+        elif step == st.session_state.current_step:
+            # Highlight current step
+            st.sidebar.markdown(f'🔵 **{step}**')
+        else:
+            # Show completed or available steps as clickable
+            if st.sidebar.button(f'⚪ {step}', key=f'btn_{step}'):
+                # Only allow navigation to Results if form is submitted
+                if step != "Results" or st.session_state.form_submitted:
+                    st.session_state.current_step = step
+                    st.session_state.form_submitted = False
+                    st.session_state.analysis_results = None
+                    st.session_state.processing = False
+                    st.rerun()
+
+def render_patient_form():
     st.title("Medical Diagnosis Assistant")
     st.markdown("""
     This application uses AI to assist in medical diagnosis. Please note that this tool is for 
     informational purposes only and should not replace professional medical advice.
     """)
     
-    # Create form for patient information
     with st.form("patient_info_form"):
         col1, col2 = st.columns(2)
         
         with col1:
+            st.subheader("Primary Information")
             age = st.number_input("Age", min_value=0, max_value=120, value=None)
             gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=None)
             primary_symptoms = st.text_area("Primary Symptoms", height=100)
             symptom_duration = st.text_input("Symptom Onset and Duration")
             existing_conditions = st.text_area("Existing Medical Conditions", height=100)
-        
-        with col2:
             current_medications = st.text_area("Current Medications", height=100)
             lab_results = st.text_area("Recent Lab Test Results", height=100)
-            
-            # Vital Signs (Optional)
+        
+        with col2:
+            # Vital Signs Section
             st.subheader("Vital Signs (Optional)")
             blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)")
             heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=None)
             temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=None)
             
-            # Lifestyle Factors (Optional)
+            st.markdown("---")
+            
+            # Lifestyle Factors Section
             st.subheader("Lifestyle Factors (Optional)")
             smoking = st.selectbox("Smoking Status", ["Non-smoker", "Former smoker", "Current smoker"], index=None)
             alcohol = st.selectbox("Alcohol Consumption", ["None", "Occasional", "Moderate", "Heavy"], index=None)
@@ -74,39 +82,57 @@ def main():
                 index=None
             )
         
-        submit_button = st.form_submit_button("Analyze Symptoms")
-        
+        st.markdown("---")
+        submit_button = st.form_submit_button("Submit and View Results", on_click=disable_submit_button, disabled=st.session_state.processing)
+
     if submit_button:
-        # Validate required fields
-        if not all([age, gender, primary_symptoms, symptom_duration]):
-            st.error("Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)")
-            return
-        
-        # Prepare patient data
-        patient_data = {
-            "age": age,
-            "gender": gender,
-            "primary_symptoms": primary_symptoms,
-            "symptom_duration": symptom_duration,
-            "existing_conditions": existing_conditions,
-            "current_medications": current_medications,
-            "lab_results": lab_results,
-            "vital_signs": {
-                "blood_pressure": blood_pressure,
-                "heart_rate": heart_rate,
-                "temperature": temperature
-            },
-            "lifestyle_factors": {
-                "smoking": smoking,
-                "alcohol": alcohol,
-                "physical_activity": physical_activity
+        try:
+            # Validate required fields
+            if not all([age, gender, primary_symptoms, symptom_duration]):
+                st.error("Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)")
+                return
+
+            # Prepare patient data
+            patient_data = {
+                "age": age,
+                "gender": gender,
+                "primary_symptoms": primary_symptoms,
+                "symptom_duration": symptom_duration,
+                "existing_conditions": existing_conditions,
+                "current_medications": current_medications,
+                "lab_results": lab_results,
+                "vital_signs": {
+                    "blood_pressure": blood_pressure,
+                    "heart_rate": heart_rate,
+                    "temperature": temperature
+                },
+                "lifestyle_factors": {
+                    "smoking": smoking,
+                    "alcohol": alcohol,
+                    "physical_activity": physical_activity
+                }
             }
-        }
-        
-        with st.spinner("Analyzing patient information..."):
-            analysis_results = get_medical_analysis(patient_data)
-        
-        if analysis_results:
+
+            with st.spinner("Analyzing patient information..."):
+                st.session_state.analysis_results = get_medical_analysis(patient_data)
+                st.session_state.form_submitted = True
+                st.session_state.current_step = "Results"
+                st.session_state.processing = False
+                st.rerun()
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+            st.session_state.processing = False
+
+def render_results():
+    st.title("Analysis Results")
+    
+    if not st.session_state.form_submitted:
+        st.warning("Please complete the patient information form first.")
+        if st.button("Go to Patient Information"):
+            st.session_state.current_step = "Patient Information"
+        return
+    
+    if st.session_state.analysis_results:
             st.success("Analysis complete!")
             
             # Display results in tabs
@@ -114,18 +140,16 @@ def main():
             
             with tab1:
                 # Display confidence chart
-                if 'diagnoses' in analysis_results:
-                    st.plotly_chart(create_confidence_chart(analysis_results['diagnoses']))
-                    
+                if 'diagnoses' in st.session_state.analysis_results:                    
                     # Display detailed diagnosis information
-                    for diagnosis in analysis_results['diagnoses']:
-                        with st.expander(f"{diagnosis['condition']} ({diagnosis['confidence'] * 100:.1f}% confidence)"):
+                    for diagnosis in st.session_state.analysis_results['diagnoses']:
+                        with st.expander(f"{diagnosis['condition']} ({diagnosis['confidence'] * 100:.1f}% confidence)", expanded=True):
                             st.write("**Reasoning:**", diagnosis['reasoning'])
                             st.write("**Urgency Level:**", diagnosis['urgency_level'])
             
             with tab2:
-                if 'recommendations' in analysis_results:
-                    recommendations = analysis_results['recommendations']
+                if 'recommendations' in st.session_state.analysis_results:
+                    recommendations = st.session_state.analysis_results['recommendations']
                     
                     if 'immediate_actions' in recommendations:
                         st.subheader("Immediate Actions")
@@ -142,11 +166,24 @@ def main():
                         for change in recommendations['lifestyle_changes']:
                             st.write(f"• {change}")
                     
-                    if 'general_notes' in analysis_results:
+                    if 'general_notes' in st.session_state.analysis_results:
                         st.subheader("Additional Notes")
-                        st.write(analysis_results['general_notes'])
-        else:
-            st.error("An error occurred during analysis. Please try again.")
+                        st.write(st.session_state.analysis_results['general_notes'])
+
+def main():
+    st.set_page_config(
+        page_title="Medical Diagnosis Assistant",
+        page_icon="🏥",
+        layout="wide"
+    )
+    
+    initialize_session_state()
+    render_sidebar()
+    
+    if st.session_state.current_step == "Patient Information":
+        render_patient_form()
+    else:  # Results page
+        render_results()
 
 if __name__ == "__main__":
     main()
