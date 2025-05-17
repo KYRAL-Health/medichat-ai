@@ -44,7 +44,7 @@ def render_sidebar():
                     st.rerun()
 
 def render_patient_form():
-    st.title("Medical Diagnosis Assistant")
+    st.title("MediChat AI Assistant")
     st.markdown("""
     This application uses AI to assist in medical diagnosis. Please note that this tool is for 
     informational purposes only and should not replace professional medical advice.
@@ -172,7 +172,7 @@ def render_results():
 
 def main():
     st.set_page_config(
-        page_title="Medical Diagnosis Assistant",
+        page_title="MediChat AI Assistant",
         page_icon="🏥",
         layout="wide"
     )

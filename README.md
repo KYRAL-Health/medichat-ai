@@ -1,4 +1,4 @@
-# Medical Diagnosis Assistant
+# MediChat AI Assistant
 
 An AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, and recommended actions.
 
@@ -6,8 +6,6 @@ An AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. 
 
 - User-friendly form interface for patient information
 - Integration with AWS Bedrock's Llama 3 model for medical analysis
-- Interactive visualization of diagnosis confidence scores
-- PDF export functionality for analysis results
 - Comprehensive data collection including:
   - Basic patient information
   - Symptoms and medical history
@@ -46,7 +44,6 @@ streamlit run app.py
 - `app.py` - Main Streamlit application
 - `utils/`
   - `bedrock.py` - AWS Bedrock integration
-  - `pdf_export.py` - PDF report generation
 - `requirements.txt` - Project dependencies
 - `.env.template` - Template for environment variables
 
@@ -57,7 +54,6 @@ streamlit run app.py
 3. Review the analysis results in the following tabs:
    - Diagnoses: View potential conditions with confidence scores and reasoning
    - Recommendations: See suggested actions, tests, and lifestyle changes
-   - Export: Generate and download a PDF report of the analysis
 
 ## Important Note
 
