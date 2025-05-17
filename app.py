@@ -1,11 +1,15 @@
 import streamlit as st
 from utils.bedrock import get_medical_analysis
 from dotenv import load_dotenv
+import bcrypt
+import os
 
 # Load environment variables
 load_dotenv()
 
 def initialize_session_state():
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
     if 'current_step' not in st.session_state:
         st.session_state.current_step = "Patient Information"
     if 'analysis_results' not in st.session_state:
@@ -14,6 +18,28 @@ def initialize_session_state():
         st.session_state.form_submitted = False
     if 'processing' not in st.session_state:
         st.session_state.processing = False
+
+def check_password(password):
+    stored_hash = os.getenv('APP_PASSWORD_HASH')
+    if not stored_hash:
+        st.error("Password hash not found in environment variables!")
+        return False
+    return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+
+def login_page():
+    st.title("MediChat AI Assistant - Login")
+    st.markdown("Please enter your password to access the application.")
+    
+    with st.form("login_form"):
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+        
+        if submit:
+            if check_password(password):
+                st.session_state.logged_in = True
+                st.rerun()
+            else:
+                st.error("Incorrect password. Please try again.")
         
 def disable_submit_button():
     st.session_state.processing = True
@@ -166,9 +192,9 @@ def render_results():
                         for change in recommendations['lifestyle_changes']:
                             st.write(f"• {change}")
                     
-                    if 'general_notes' in st.session_state.analysis_results:
-                        st.subheader("Additional Notes")
-                        st.write(st.session_state.analysis_results['general_notes'])
+                if 'general_notes' in st.session_state.analysis_results:
+                    st.subheader("Additional Notes")
+                    st.write(st.session_state.analysis_results['general_notes'])
 
 def main():
     st.set_page_config(
@@ -178,12 +204,21 @@ def main():
     )
     
     initialize_session_state()
-    render_sidebar()
-    
-    if st.session_state.current_step == "Patient Information":
-        render_patient_form()
-    else:  # Results page
-        render_results()
+
+    if not st.session_state.logged_in:
+        login_page()
+    else:
+        # Add logout button in sidebar
+        if st.sidebar.button("Logout"):
+            st.session_state.logged_in = False
+            st.rerun()
+        
+        render_sidebar()
+        
+        if st.session_state.current_step == "Patient Information":
+            render_patient_form()
+        else:  # Results page
+            render_results()
 
 if __name__ == "__main__":
     main()

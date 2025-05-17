@@ -17,7 +17,7 @@ An AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd medical-ai-chat
+cd medichat-ai
 ```
 
 2. Install dependencies:
