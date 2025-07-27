@@ -1,6 +1,6 @@
-# MediChat AI Assistant
+# Kyral MediChat AI Assistant
 
-An AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, and recommended actions.
+Kyral's AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, and recommended actions.
 
 ## Features
 
