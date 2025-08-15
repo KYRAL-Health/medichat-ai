@@ -61,4 +61,4 @@ This application is for informational purposes only and should not replace profe
 
 ## License
 
-[MIT License](LICENSE)
+[Apache 2.0 License](LICENSE)
