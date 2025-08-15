@@ -32,7 +32,7 @@ def check_password(password):
     return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
 
 def login_page():
-    st.title("MediChat AI Assistant - Login")
+    st.title("Kyral MediChat AI Assistant - Login")
     st.markdown("Please enter your password to access the application.")
     
     with st.form("login_form"):
@@ -76,10 +76,10 @@ def render_sidebar():
 
     # Add version display at bottom of sidebar
     st.sidebar.markdown("---")
-    st.sidebar.markdown(f"v{VERSION}", help="MediChat AI Assistant Version")
+    st.sidebar.markdown(f"v{VERSION}", help="Kyral MediChat AI Assistant Version")
 
 def render_patient_form():
-    st.title("MediChat AI Assistant")
+    st.title("Kyral MediChat AI Assistant")
     st.markdown("""
     This application uses AI to assist in medical diagnosis. Please note that this tool is for 
     informational purposes only and should not replace professional medical advice.
@@ -229,7 +229,7 @@ def render_results():
 
 def main():
     st.set_page_config(
-        page_title="MediChat AI Assistant",
+        page_title="Kyral MediChat AI Assistant",
         page_icon="🏥",
         layout="wide"
     )
