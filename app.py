@@ -191,7 +191,7 @@ def render_patient_form():
             st.session_state.processing = False
 
 def render_results():
-    st.title("Analysis Results")
+    st.title("Analysis & Insights")
     
     if not st.session_state.form_submitted:
         st.warning("Please complete the patient information form first.")
@@ -203,7 +203,7 @@ def render_results():
             st.success("Analysis complete!")
             
             # Display results in tabs
-            tab1, tab2 = st.tabs(["Diagnoses", "Recommendations"])
+            tab1, tab2 = st.tabs(["Diagnoses", "Insights"])
             
             with tab1:
                 # Display confidence chart
@@ -234,7 +234,7 @@ def render_results():
                             st.write(f"• {change}")
                     
                 if 'general_notes' in st.session_state.analysis_results:
-                    st.subheader("Additional Notes")
+                    st.subheader("Summary")
                     st.write(st.session_state.analysis_results['general_notes'])
 
 def render_admin():
