@@ -1,18 +1,23 @@
-# Kyral MediChat AI Assistant
+# Kyral MediChat AI Assistant (Beta)
 
-Kyral's AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, and recommended actions.
+Kyral's AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, insights and recommended actions. MediChat is self-hosted on AWS, private and secure. 
 
 ## Features
 
-- User-friendly form interface for patient information
-- Integration with AWS Bedrock's Llama 3 model for medical analysis
-- Access control via unique access keys with usage tracking
-- Admin panel for managing user access and viewing submission statistics
-- Comprehensive data collection including:
+- User-friendly form interface to provide patient symptoms, existing conditions, medications, and/or lab results.
+- Integration with AWS Bedrock's Llama-3.3-70B model for medical analysis, insights and recommendations.
+- Access control via unique access keys with usage tracking.
+- Admin panel for managing user access and viewing submission statistics.
+- Comprehensive data fields for analysis include:
   - Basic patient information
   - Symptoms and medical history
-  - Vital signs
-  - Lifestyle factors
+  - Vital signs (Optional)
+  - Lifestyle factors (Optional)
+ 
+## Privacy and Data Collection
+- No data is stored following submission for analysis
+- No data is used for model training or fine-tuning
+- No user data is sold or used for any other purposes
 
 ## Setup
 
