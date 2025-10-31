@@ -4,13 +4,16 @@ Kyral's AI-powered medical diagnosis assistant built with Streamlit and AWS Bedr
 
 ## Features
 
-- User-friendly form interface to provide patient symptoms, existing conditions, medications, and/or lab results.
-- Integration with AWS Bedrock's Llama-3.3-70B model for medical analysis, insights and recommendations.
+- **Multiple Input Methods:**
+  - Manual form entry for patient symptoms, existing conditions, medications, and lab results
+  - **PDF Upload:** Upload single or multiple patient medical record PDFs - AI analyzes documents directly for comprehensive diagnosis
+- Integration with AWS Bedrock's Llama-3.3-70B model for medical analysis, insights and recommendations
 - Comprehensive data fields for analysis include:
   - Basic patient information
   - Symptoms and medical history
   - Vital signs (Optional)
   - Lifestyle factors (Optional)
+- Direct PDF-to-diagnosis workflow for faster analysis
  
 ## Privacy and Data Collection
 - No data is stored following submission for analysis
@@ -46,19 +49,35 @@ streamlit run app.py
 
 ## Project Structure
 
-- `app.py` - Main Streamlit application
+- `app.py` - Main Streamlit application with manual and PDF input options
 - `utils/`
-  - `bedrock.py` - AWS Bedrock integration
+  - `bedrock.py` - AWS Bedrock integration for medical analysis
+  - `pdf_processor.py` - PDF text extraction and patient data parsing utilities
 - `requirements.txt` - Project dependencies
 - `.env.template` - Template for environment variables
 
 ## Usage
 
-1. Fill out the patient information form with all required fields
-2. Click "Analyze Symptoms" to process the information
-3. Review the analysis results in the following tabs:
+### Manual Entry
+1. Select "📝 Manual Entry (Fill Form)" option
+2. Fill out the patient information form with all required fields
+3. Click "Analyze Symptoms" to process the information
+4. Review the analysis results in the following tabs:
    - Diagnoses: View potential conditions with confidence scores and reasoning
    - Insights: See suggested actions, tests, and lifestyle changes
+
+### PDF Upload
+1. Select "📄 Upload PDF (Patient Records)" option
+2. Upload one or more PDF files containing patient medical records
+   - Multiple files can be selected simultaneously
+   - All files will be processed together for comprehensive analysis
+3. Click "🔍 Extract & Analyze PDF(s)" to process the documents
+4. The AI will automatically:
+   - Extract text from all uploaded PDFs
+   - Add clear file separators between multiple documents
+   - Analyze the complete medical records directly with AI
+   - Generate diagnoses, insights, and recommendations based on all files
+5. Review the comprehensive analysis results
 
 ## Important Note
 

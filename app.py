@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit.components.v1 import html
-from utils.bedrock import get_medical_analysis
+from utils.bedrock import get_medical_analysis, get_medical_analysis_from_pdf_text
+from utils.pdf_processor import extract_text_from_pdf
 from dotenv import load_dotenv
 import bcrypt
 import os
@@ -8,7 +9,7 @@ import os
 # Load environment variables
 load_dotenv()
 
-VERSION = "0.1.2"  # Application version
+VERSION = "0.2.0"  # Application version
 
 def initialize_session_state():
     if 'logged_in' not in st.session_state:
@@ -23,6 +24,12 @@ def initialize_session_state():
         st.session_state.processing = False
     if 'error_message' not in st.session_state:
         st.session_state.error_message = None
+    if 'input_method' not in st.session_state:
+        st.session_state.input_method = "manual"  # "manual" or "pdf"
+    if 'pdf_extracted_text' not in st.session_state:
+        st.session_state.pdf_extracted_text = None
+    if 'parsed_patient_data' not in st.session_state:
+        st.session_state.parsed_patient_data = None
 
 def check_password(password):
     stored_hash = os.getenv('APP_PASSWORD_HASH')
@@ -85,100 +92,186 @@ def render_patient_form():
     informational purposes only and should not replace professional medical advice.
     """)
     
-    with st.form("patient_info_form"):
-        if st.session_state.error_message:
-            st.error(st.session_state.error_message)
-            st.session_state.error_message = None
-            
-        st.subheader("Primary Information") 
+    # Add input method selector
+    st.subheader("Choose Input Method")
+    input_method = st.radio(
+        "How would you like to provide patient information?",
+        ["📝 Manual Entry (Fill Form)", "📄 Upload PDF (Patient Records)"],
+        index=0 if st.session_state.input_method == "manual" else 1,
+        horizontal=True
+    )
+    
+    # Update session state based on selection
+    if "Manual Entry" in input_method:
+        st.session_state.input_method = "manual"
+    else:
+        st.session_state.input_method = "pdf"
+    
+    st.markdown("---")
+    
+    # PDF Upload Section
+    if st.session_state.input_method == "pdf":
+        st.subheader("Upload Patient Records")
+        st.markdown("Upload one or more PDF files containing patient medical records. The AI will extract and analyze the information.")
         
-        col1, col2 = st.columns(2)
-        col3, col4 = st.columns(2)
+        uploaded_files = st.file_uploader("Choose PDF file(s)", type=['pdf'], accept_multiple_files=True, key="pdf_uploader")
         
-        with col1:
-            age = st.number_input("Age", min_value=0, max_value=120, value=None)
-            gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=None)
-            primary_symptoms = st.text_area("Primary Symptoms", height=100)
-            symptom_duration = st.text_input("Symptom Onset and Duration")
+        if uploaded_files:
+            # Display uploaded files info
+            if len(uploaded_files) == 1:
+                st.info(f"📄 1 file uploaded: {uploaded_files[0].name} ({uploaded_files[0].size / 1024:.2f} KB)")
+            else:
+                total_size = sum(f.size for f in uploaded_files) / 1024
+                st.info(f"📄 {len(uploaded_files)} files uploaded (Total: {total_size:.2f} KB)")
+                with st.expander("View uploaded files", expanded=False):
+                    for i, f in enumerate(uploaded_files, 1):
+                        st.text(f"{i}. {f.name} ({f.size / 1024:.2f} KB)")
             
-        with col2:
-            existing_conditions = st.text_area("Existing Medical Conditions", height=100)
-            current_medications = st.text_area("Current Medications", height=100)
-            lab_results = st.text_area("Recent Lab Test Results", height=100)
-        
-        with col3:
-            # Vital Signs Section
-            st.subheader("Vital Signs (Optional)")
-            blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)")
-            heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=None)
-            temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=None)
+            col1, col2 = st.columns([1, 1])
             
-        with col4:
-            # Lifestyle Factors Section
-            st.subheader("Lifestyle Factors (Optional)")
-            smoking = st.selectbox("Smoking Status", ["Non-smoker", "Former smoker", "Current smoker"], index=None)
-            alcohol = st.selectbox("Alcohol Consumption", ["None", "Occasional", "Moderate", "Heavy"], index=None)
-            physical_activity = st.selectbox(
-                "Physical Activity Level",
-                ["Sedentary", "Light", "Moderate", "Very active"],
-                index=None
-            )
-        
-        st.markdown("---")
-        submit_button = st.form_submit_button("Analyze Symptoms", on_click=disable_submit_button, disabled=st.session_state.processing)
-
-    if submit_button:
-        try:
-            # Validate required fields
-            if not all([age, gender, primary_symptoms, symptom_duration]):
-                st.session_state.error_message = "Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)"    
-                st.session_state.processing = False
-                st.rerun()
-                return
-
-            # Prepare patient data
-            patient_data = {
-                "age": age,
-                "gender": gender,
-                "primary_symptoms": primary_symptoms,
-                "symptom_duration": symptom_duration,
-                "existing_conditions": existing_conditions,
-                "current_medications": current_medications,
-                "lab_results": lab_results,
-                "vital_signs": {
-                    "blood_pressure": blood_pressure,
-                    "heart_rate": heart_rate,
-                    "temperature": temperature
-                },
-                "lifestyle_factors": {
-                    "smoking": smoking,
-                    "alcohol": alcohol,
-                    "physical_activity": physical_activity
-                }
-            }
+            with col1:
+                if st.button("🔍 Extract & Analyze PDF(s)", type="primary", disabled=st.session_state.processing):
+                    st.session_state.processing = True
+                    try:
+                        all_extracted_text = ""
+                        
+                        # Process each PDF file
+                        for idx, uploaded_file in enumerate(uploaded_files, 1):
+                            with st.spinner(f"Extracting text from file {idx}/{len(uploaded_files)}: {uploaded_file.name}..."):
+                                extracted_text = extract_text_from_pdf(uploaded_file)
+                                
+                                # Add file separator if multiple files
+                                if len(uploaded_files) > 1:
+                                    all_extracted_text += f"\n\n{'='*60}\n"
+                                    all_extracted_text += f"FILE {idx}: {uploaded_file.name}\n"
+                                    all_extracted_text += f"{'='*60}\n\n"
+                                
+                                all_extracted_text += extracted_text
+                        
+                        st.session_state.pdf_extracted_text = all_extracted_text
+                        st.success(f"✅ Text extracted from {len(uploaded_files)} file(s) successfully!")
+                        
+                        # Show extracted text preview
+                        with st.expander("📄 View Extracted Text (Preview)", expanded=False):
+                            preview_text = all_extracted_text[:1500] + "..." if len(all_extracted_text) > 1500 else all_extracted_text
+                            st.text_area("Extracted Content", preview_text, height=300, disabled=True)
+                            st.caption(f"Total extracted: {len(all_extracted_text)} characters")
+                        
+                        with st.spinner("Analyzing medical record(s) with AI..."):
+                            st.session_state.analysis_results = get_medical_analysis_from_pdf_text(all_extracted_text)
+                            st.session_state.form_submitted = True
+                            st.session_state.current_step = "Results"
+                            st.session_state.processing = False
+                            st.rerun()
+                            
+                    except Exception as e:
+                        st.error(f"Error processing PDF(s): {str(e)}")
+                        st.session_state.processing = False
             
-            with st.spinner("Analyzing patient information..."):
-                html("""
-                 <script>
-                        setTimeout(() => {
-                            const spinner = document.getElementById("analysis_spinner");
-                            console.log("Spinner element:", spinner);
-                            if (spinner) {
-                                spinner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                        }, 100);
-                    </script>
-                 <div id="analysis_spinner" style="height:0"></div>
-                 """.encode(), height=0)                
+            with col2:
+                if st.button("Clear"):
+                    st.session_state.pdf_extracted_text = None
+                    st.session_state.parsed_patient_data = None
+                    st.rerun()
+        else:
+            st.info("👆 Please upload one or more PDF files to continue")
+    
+    # Manual Entry Section
+    else:
+        with st.form("patient_info_form"):
+            if st.session_state.error_message:
+                st.error(st.session_state.error_message)
+                st.session_state.error_message = None
                 
-                st.session_state.analysis_results = get_medical_analysis(patient_data)
-                st.session_state.form_submitted = True
-                st.session_state.current_step = "Results"
+            st.subheader("Primary Information") 
+            
+            col1, col2 = st.columns(2)
+            col3, col4 = st.columns(2)
+            
+            with col1:
+                age = st.number_input("Age", min_value=0, max_value=120, value=None)
+                gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=None)
+                primary_symptoms = st.text_area("Primary Symptoms", height=100)
+                symptom_duration = st.text_input("Symptom Onset and Duration")
+                
+            with col2:
+                existing_conditions = st.text_area("Existing Medical Conditions", height=100)
+                current_medications = st.text_area("Current Medications", height=100)
+                lab_results = st.text_area("Recent Lab Test Results", height=100)
+            
+            with col3:
+                # Vital Signs Section
+                st.subheader("Vital Signs (Optional)")
+                blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)")
+                heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=None)
+                temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=None)
+                
+            with col4:
+                # Lifestyle Factors Section
+                st.subheader("Lifestyle Factors (Optional)")
+                smoking = st.selectbox("Smoking Status", ["Non-smoker", "Former smoker", "Current smoker"], index=None)
+                alcohol = st.selectbox("Alcohol Consumption", ["None", "Occasional", "Moderate", "Heavy"], index=None)
+                physical_activity = st.selectbox(
+                    "Physical Activity Level",
+                    ["Sedentary", "Light", "Moderate", "Very active"],
+                    index=None
+                )
+            
+            st.markdown("---")
+            submit_button = st.form_submit_button("Analyze Symptoms", on_click=disable_submit_button, disabled=st.session_state.processing)
+
+        if submit_button:
+            try:
+                # Validate required fields
+                if not all([age, gender, primary_symptoms, symptom_duration]):
+                    st.session_state.error_message = "Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)"    
+                    st.session_state.processing = False
+                    st.rerun()
+                    return
+
+                # Prepare patient data
+                patient_data = {
+                    "age": age,
+                    "gender": gender,
+                    "primary_symptoms": primary_symptoms,
+                    "symptom_duration": symptom_duration,
+                    "existing_conditions": existing_conditions,
+                    "current_medications": current_medications,
+                    "lab_results": lab_results,
+                    "vital_signs": {
+                        "blood_pressure": blood_pressure,
+                        "heart_rate": heart_rate,
+                        "temperature": temperature
+                    },
+                    "lifestyle_factors": {
+                        "smoking": smoking,
+                        "alcohol": alcohol,
+                        "physical_activity": physical_activity
+                    }
+                }
+                
+                with st.spinner("Analyzing patient information..."):
+                    html("""
+                     <script>
+                            setTimeout(() => {
+                                const spinner = document.getElementById("analysis_spinner");
+                                console.log("Spinner element:", spinner);
+                                if (spinner) {
+                                    spinner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                            }, 100);
+                        </script>
+                     <div id="analysis_spinner" style="height:0"></div>
+                     """.encode(), height=0)                
+                    
+                    st.session_state.analysis_results = get_medical_analysis(patient_data)
+                    st.session_state.form_submitted = True
+                    st.session_state.current_step = "Results"
+                    st.session_state.processing = False
+                    st.rerun()
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
                 st.session_state.processing = False
-                st.rerun()
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-            st.session_state.processing = False
 
 def render_results():
     st.title("Analysis & Insights")
