@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit.components.v1 import html
 from utils.bedrock import get_medical_analysis
+from utils.pdf_processor import extract_text_from_multiple_pdfs
 from dotenv import load_dotenv
 import bcrypt
 import os
@@ -23,6 +24,8 @@ def initialize_session_state():
         st.session_state.processing = False
     if 'error_message' not in st.session_state:
         st.session_state.error_message = None
+    if 'uploaded_pdf_content' not in st.session_state:
+        st.session_state.uploaded_pdf_content = None
 
 def check_password(password):
     stored_hash = os.getenv('APP_PASSWORD_HASH')
@@ -149,6 +152,21 @@ def render_patient_form():
             )
         
         st.markdown("---")
+        
+        # PDF Upload Section
+        st.subheader("📄 Upload Medical History Documents (Optional)")
+        st.markdown("You can upload one or multiple PDF files containing additional medical history, lab reports, or other relevant documents.")
+        uploaded_files = st.file_uploader(
+            "Choose PDF files",
+            type=['pdf'],
+            accept_multiple_files=True,
+            help="Upload PDF documents containing medical history, lab results, or other relevant information"
+        )
+        
+        if uploaded_files:
+            st.info(f"📎 {len(uploaded_files)} file(s) uploaded: {', '.join([f.name for f in uploaded_files])}")
+        
+        st.markdown("---")
         submit_button = st.form_submit_button("Analyze Symptoms", on_click=disable_submit_button, disabled=st.session_state.processing)
 
     if submit_button:
@@ -160,6 +178,13 @@ def render_patient_form():
                 st.rerun()
                 return
 
+            # Process uploaded PDF files if any
+            pdf_content = ""
+            if uploaded_files:
+                with st.spinner(f"Processing {len(uploaded_files)} PDF file(s)..."):
+                    pdf_content = extract_text_from_multiple_pdfs(uploaded_files)
+                    st.session_state.uploaded_pdf_content = pdf_content
+
             # Prepare patient data
             patient_data = {
                 "age": age,
@@ -169,6 +194,7 @@ def render_patient_form():
                 "existing_conditions": existing_conditions,
                 "current_medications": current_medications,
                 "lab_results": lab_results,
+                "uploaded_medical_documents": pdf_content if pdf_content else None,
                 "vital_signs": {
                     "blood_pressure": blood_pressure,
                     "heart_rate": heart_rate,
