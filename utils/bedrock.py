@@ -19,7 +19,7 @@ As a medical diagnostic AI assistant, analyze the following patient information 
 Patient Information:
 - Age: {patient_data.get('age')}
 - Gender: {patient_data.get('gender')}
-- Primary Symptoms: {patient_data.get('primary_symptoms')}
+- History of Present Illness: {patient_data.get('history_of_present_illness')}
 - Symptom Duration: {patient_data.get('symptom_duration')}
 - Existing Conditions: {patient_data.get('existing_conditions')}
 - Current Medications: {patient_data.get('current_medications')}

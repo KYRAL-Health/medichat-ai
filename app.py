@@ -69,8 +69,6 @@ def render_sidebar():
                 # Only allow navigation to Results if form is submitted
                 if step != "Results" or st.session_state.form_submitted:
                     st.session_state.current_step = step
-                    st.session_state.form_submitted = False
-                    st.session_state.analysis_results = None
                     st.session_state.processing = False
                     st.rerun()
 
@@ -85,6 +83,32 @@ def render_patient_form():
     informational purposes only and should not replace professional medical advice.
     """)
     
+    # Get existing patient data for pre-population
+    patient_data = st.session_state.get('patient_data', {})
+    
+    # Prepare default values
+    age_default = patient_data.get('age')
+    gender_options = ["Male", "Female", "Other"]
+    gender_index = gender_options.index(patient_data['gender']) if patient_data.get('gender') in gender_options else None
+    history_default = patient_data.get('history_of_present_illness', '')
+    duration_default = patient_data.get('symptom_duration', '')
+    conditions_default = patient_data.get('existing_conditions', '')
+    medications_default = patient_data.get('current_medications', '')
+    lab_default = patient_data.get('lab_results', '')
+    
+    vital_signs = patient_data.get('vital_signs', {})
+    bp_default = vital_signs.get('blood_pressure', '')
+    hr_default = vital_signs.get('heart_rate')
+    temp_default = vital_signs.get('temperature')
+    
+    lifestyle = patient_data.get('lifestyle_factors', {})
+    smoking_options = ["Non-smoker", "Former smoker", "Current smoker"]
+    smoking_index = smoking_options.index(lifestyle['smoking']) if lifestyle.get('smoking') in smoking_options else None
+    alcohol_options = ["None", "Occasional", "Moderate", "Heavy"]
+    alcohol_index = alcohol_options.index(lifestyle['alcohol']) if lifestyle.get('alcohol') in alcohol_options else None
+    activity_options = ["Sedentary", "Light", "Moderate", "Very active"]
+    activity_index = activity_options.index(lifestyle['physical_activity']) if lifestyle.get('physical_activity') in activity_options else None
+
     with st.form("patient_info_form"):
         if st.session_state.error_message:
             st.error(st.session_state.error_message)
@@ -96,32 +120,32 @@ def render_patient_form():
         col3, col4 = st.columns(2)
         
         with col1:
-            age = st.number_input("Age", min_value=0, max_value=120, value=None)
-            gender = st.selectbox("Gender", ["Male", "Female", "Other"], index=None)
-            primary_symptoms = st.text_area("Primary Symptoms", height=100)
-            symptom_duration = st.text_input("Symptom Onset and Duration")
+            age = st.number_input("Age", min_value=0, max_value=120, value=age_default)
+            gender = st.selectbox("Gender", gender_options, index=gender_index)
+            history_of_present_illness = st.text_area("History of Present Illness", height=100, placeholder="Describe the patient's current illness in detail, including onset, progression, associated symptoms, foreign travel, etc.", value=history_default)
+            symptom_duration = st.text_input("Symptom Onset and Duration", value=duration_default)
             
         with col2:
-            existing_conditions = st.text_area("Existing Medical Conditions", height=100)
-            current_medications = st.text_area("Current Medications", height=100)
-            lab_results = st.text_area("Recent Lab Test Results", height=100)
+            existing_conditions = st.text_area("Existing Medical Conditions (Optional)", height=100, value=conditions_default)
+            current_medications = st.text_area("Current Medications (Optional)", height=100, value=medications_default)
+            lab_results = st.text_area("Recent Lab Test Results (Optional)", height=100, value=lab_default)
         
         with col3:
             # Vital Signs Section
             st.subheader("Vital Signs (Optional)")
-            blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)")
-            heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=None)
-            temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=None)
+            blood_pressure = st.text_input("Blood Pressure (e.g., 120/80)", value=bp_default)
+            heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=250, value=hr_default)
+            temperature = st.number_input("Temperature (°F)", min_value=90.0, max_value=116.0, value=temp_default)
             
         with col4:
             # Lifestyle Factors Section
             st.subheader("Lifestyle Factors (Optional)")
-            smoking = st.selectbox("Smoking Status", ["Non-smoker", "Former smoker", "Current smoker"], index=None)
-            alcohol = st.selectbox("Alcohol Consumption", ["None", "Occasional", "Moderate", "Heavy"], index=None)
+            smoking = st.selectbox("Smoking Status", smoking_options, index=smoking_index)
+            alcohol = st.selectbox("Alcohol Consumption", alcohol_options, index=alcohol_index)
             physical_activity = st.selectbox(
                 "Physical Activity Level",
-                ["Sedentary", "Light", "Moderate", "Very active"],
-                index=None
+                activity_options,
+                index=activity_index
             )
         
         st.markdown("---")
@@ -130,8 +154,8 @@ def render_patient_form():
     if submit_button:
         try:
             # Validate required fields
-            if not all([age, gender, primary_symptoms, symptom_duration]):
-                st.session_state.error_message = "Please fill in all required fields (Age, Gender, Primary Symptoms, and Symptom Duration)"    
+            if not all([age, gender, history_of_present_illness, symptom_duration]):
+                st.session_state.error_message = "Please fill in all required fields (Age, Gender, History of Present Illness, and Symptom Duration)"
                 st.session_state.processing = False
                 st.rerun()
                 return
@@ -140,7 +164,7 @@ def render_patient_form():
             patient_data = {
                 "age": age,
                 "gender": gender,
-                "primary_symptoms": primary_symptoms,
+                "history_of_present_illness": history_of_present_illness,
                 "symptom_duration": symptom_duration,
                 "existing_conditions": existing_conditions,
                 "current_medications": current_medications,
@@ -156,6 +180,8 @@ def render_patient_form():
                     "physical_activity": physical_activity
                 }
             }
+            
+            st.session_state.patient_data = patient_data
             
             with st.spinner("Analyzing patient information..."):
                 html("""
