@@ -5,6 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Boolean, Enum, TI
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import secrets
+import boto3
+import json
+import time
 
 load_dotenv()
 
@@ -21,8 +24,51 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     submission_count = Column(Integer, default=0)
 
+class CredentialManager:
+    def __init__(self):
+        self._credentials = None
+        self._last_fetch = 0
+        self._ttl = int(os.getenv('DB_CREDENTIALS_TTL', 300))  # Default 5 minutes
+    
+    def get_credentials(self):
+        current_time = time.time()
+        if self._credentials is None or (current_time - self._last_fetch) > self._ttl:
+            self._credentials = self._fetch_credentials()
+            self._last_fetch = current_time
+        return self._credentials
+    
+    def _fetch_credentials(self):
+        db_user = os.getenv('DB_USER')
+        db_password = os.getenv('DB_PASSWORD')
+        
+        if db_user and db_password:
+            return db_user, db_password
+        
+        # Fetch from AWS Secrets Manager
+        secret_name = os.getenv('DB_SECRET_NAME')
+        if not secret_name:
+            raise ValueError("DB_SECRET_NAME environment variable is required when DB_USER or DB_PASSWORD are not set")
+        
+        client = boto3.client('secretsmanager', region_name=os.getenv('AWS_REGION'))
+        response = client.get_secret_value(SecretId=secret_name)
+        secret = response['SecretString']
+        creds = json.loads(secret)
+        return creds['username'], creds['password']
+    
+    def invalidate_cache(self):
+        """Force refresh credentials on next call"""
+        self._credentials = None
+        self._last_fetch = 0
+
+# Global credential manager instance
+credential_manager = CredentialManager()
+
+def get_db_credentials():
+    return credential_manager.get_credentials()
+
 # Database setup
-DATABASE_URL = f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT', 3306)}/{os.getenv('DB_NAME')}"
+db_user, db_password = get_db_credentials()
+DATABASE_URL = f"mysql+pymysql://{db_user}:{db_password}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT', 3306)}/{os.getenv('DB_NAME')}"
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -33,6 +79,27 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def _recreate_engine():
+    """Recreate the database engine with fresh credentials"""
+    global engine, SessionLocal
+    db_user, db_password = get_db_credentials()
+    DATABASE_URL = f"mysql+pymysql://{db_user}:{db_password}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT', 3306)}/{os.getenv('DB_NAME')}"
+    engine = create_engine(DATABASE_URL, echo=False)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def _retry_on_auth_error(func, *args, **kwargs):
+    """Retry database operation once after refreshing credentials on auth error"""
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        if 'Access denied' in str(e) or 'authentication' in str(e).lower():
+            # Likely credential issue, refresh and retry
+            credential_manager.invalidate_cache()
+            _recreate_engine()
+            return func(*args, **kwargs)
+        else:
+            raise
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
@@ -51,34 +118,46 @@ def add_user(access_key, role='user', email=None):
     if email and not isinstance(email, str):
         return False
     
-    db = SessionLocal()
+    def _add_user_impl():
+        db = SessionLocal()
+        try:
+            user = User(access_key=access_key, role=role, email=email)
+            db.add(user)
+            db.commit()
+            return True
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+    
     try:
-        user = User(access_key=access_key, role=role, email=email)
-        db.add(user)
-        db.commit()
-        return True
+        return _retry_on_auth_error(_add_user_impl)
     except Exception:
-        db.rollback()
         return False
-    finally:
-        db.close()
 
 def validate_key(access_key):
     if not access_key or not isinstance(access_key, str):
         return None
     
-    db = SessionLocal()
+    def _validate_key_impl():
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.access_key == access_key, User.is_active == True).first()
+            if user:
+                return {
+                    'id': user.id,
+                    'role': user.role,
+                    'is_active': user.is_active
+                }
+            return None
+        finally:
+            db.close()
+    
     try:
-        user = db.query(User).filter(User.access_key == access_key, User.is_active == True).first()
-        if user:
-            return {
-                'id': user.id,
-                'role': user.role,
-                'is_active': user.is_active
-            }
+        return _retry_on_auth_error(_validate_key_impl)
+    except Exception:
         return None
-    finally:
-        db.close()
 
 def deactivate_user(access_key):
     if not access_key or not isinstance(access_key, str):
