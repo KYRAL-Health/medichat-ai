@@ -40,11 +40,22 @@ pip install -r requirements.txt
      AWS_SECRET_ACCESS_KEY=your_secret_key_here
      AWS_REGION=your_region_here
      
+     # Option 1: Direct database credentials
      DB_HOST=your_rds_endpoint_here
      DB_USER=your_db_username_here
      DB_PASSWORD=your_db_password_here
      DB_NAME=medichat_db
      DB_PORT=3306
+     
+     # Option 2: AWS Secrets Manager (alternative to direct credentials)
+     # If DB_USER and DB_PASSWORD are not set, credentials will be fetched from Secrets Manager
+     DB_SECRET_NAME=your_secret_name_here
+     DB_HOST=your_rds_endpoint_here
+     DB_NAME=medichat_db
+     DB_PORT=3306
+     
+     # Optional: Credential cache TTL in seconds (default: 300 = 5 minutes)
+     DB_CREDENTIALS_TTL=300
      ```
 
 4. Set up MySQL database:
@@ -75,6 +86,22 @@ streamlit run app.py
 ## Database Migration
 
 If you have existing users in the database, the new `submission_count` column will be added automatically when the app starts. Existing users will start with a submission count of 0.
+
+## AWS Secrets Manager Integration
+
+The application supports automatic credential rotation through AWS Secrets Manager:
+
+- **Automatic Refresh**: Database credentials are cached and refreshed every 5 minutes (configurable via `DB_CREDENTIALS_TTL`)
+- **Rotation Handling**: If credentials become invalid during rotation, the application automatically retries with fresh credentials
+- **Zero Downtime**: Credential updates happen seamlessly without requiring application restarts
+
+When using Secrets Manager, ensure your secret contains a JSON object with `username` and `password` keys:
+```json
+{
+  "username": "your_db_username",
+  "password": "your_db_password"
+}
+```
 
 ## Project Structure
 
