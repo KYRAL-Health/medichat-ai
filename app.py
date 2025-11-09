@@ -25,6 +25,8 @@ def initialize_session_state():
         st.session_state.processing = False
     if 'error_message' not in st.session_state:
         st.session_state.error_message = None
+    if 'uploaded_pdf_content' not in st.session_state:
+        st.session_state.uploaded_pdf_content = None
     if 'user' not in st.session_state:
         st.session_state.user = None
     if 'access_key' not in st.session_state:
