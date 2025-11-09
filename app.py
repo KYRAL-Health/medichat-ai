@@ -9,7 +9,7 @@ import os
 # Load environment variables
 load_dotenv()
 
-VERSION = "0.1.2"  # Application version
+VERSION = "0.2.0"  # Application version
 
 def initialize_session_state():
     if 'logged_in' not in st.session_state:
