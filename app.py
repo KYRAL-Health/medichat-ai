@@ -10,7 +10,7 @@ import os
 # Load environment variables
 load_dotenv()
 
-VERSION = "0.2.0"  # Application version
+VERSION = "0.2.1"  # Application version
 
 def initialize_session_state():
     if 'logged_in' not in st.session_state:
@@ -324,6 +324,7 @@ def render_admin():
             email_display = f" | Email: {user['email']}" if user['email'] else ""
             submission_display = f" | Submissions: {user['submission_count']}"
             with st.expander(f"Key: {user['access_key'][:10]}... | Role: {user['role']} | Active: {user['is_active']}{email_display}{submission_display}"):
+                st.write(f"Key: {user['access_key']}")
                 col1, col2 = st.columns(2)
                 with col1:
                     if user['is_active']:
