@@ -25,6 +25,25 @@ services:
       - .env
     networks:
       - web
+    depends_on:
+      - vllm
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+    command: --model /models/finetuned-model --served-model-name medichat-finetuned --api-key vllm-key
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - web
 
 networks:
   web:

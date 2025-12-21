@@ -1,6 +1,6 @@
 import streamlit as st
 from streamlit.components.v1 import html
-from utils.bedrock import get_medical_analysis
+from utils.llm_service import get_medical_analysis
 from utils.db import create_tables, generate_access_key, add_user, validate_key, deactivate_user, reactivate_user, get_all_users, increment_submission_count
 from utils.pdf_processor import extract_text_from_multiple_pdfs
 from dotenv import load_dotenv

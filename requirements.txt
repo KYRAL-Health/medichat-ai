@@ -1,5 +1,6 @@
 streamlit==1.45.1
 boto3==1.38.18
+openai>=1.0.0
 pandas==2.2.3
 plotly==6.1.0
 python-dotenv==1.1.0
