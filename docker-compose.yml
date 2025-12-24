@@ -1,30 +1,41 @@
 services:
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.0
+    container_name: traefik
     command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
+      - --api.insecure=true
+      - --api.dashboard=true
+      - --api.debug=true
+      - --log.level=INFO
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.tlschallenge=true
+      - --certificatesresolvers.myresolver.acme.email=admin@kyralhealth.com
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"  # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - web
+      - ~/letsencrypt:/letsencrypt
+    restart: unless-stopped
+
 
   app:
     build: .
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`localhost`)"
-      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.routers.app.rule=Host(`medichat-ft.kyralhealth.com`)"
+      - "traefik.http.routers.app.entrypoints=websecure"
+      - "traefik.http.routers.app.tls.certresolver=myresolver"
       - "traefik.http.services.app.loadbalancer.server.port=8501"
     env_file:
       - .env
-    networks:
-      - web
     depends_on:
       - vllm
 
@@ -33,8 +44,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/models
-    command: --model /models/finetuned-model --served-model-name medichat-finetuned --api-key vllm-key
+      - /mnt/temp/qwen3-next-80b-q4ft:/models
+    command: --model /models/merged_16bit --served-model-name medichat-finetuned --api-key vllm-key --tensor-parallel-size 2 --max-model-len 8K
     deploy:
       resources:
         reservations:
@@ -42,9 +53,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    networks:
-      - web
-
-networks:
-  web:
-    driver: bridge
