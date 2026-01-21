@@ -1,4 +1,4 @@
-# Kyral MediChat AI Assistant (Beta)
+# Kyral AI Health Companion (Pre-Alpha)
 
 Kyral's AI-powered medical diagnosis assistant built with Streamlit and AWS Bedrock. This application helps analyze patient symptoms and provides potential diagnoses with confidence scores, reasoning, insights and recommended actions. MediChat is self-hosted on AWS, private and secure. 
 
